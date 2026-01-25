@@ -1,0 +1,16 @@
+com\restaurant\repository\UserRepository.class
+com\restaurant\model\Order.class
+com\restaurant\model\MenuItem.class
+com\restaurant\controller\OrderController.class
+com\restaurant\RestaurantBackendApplication.class
+com\restaurant\model\Order$OrderStatus.class
+com\restaurant\model\OrderItem.class
+com\restaurant\service\CustomUserDetailsService.class
+com\restaurant\model\User$Role.class
+com\restaurant\controller\PaymentController.class
+com\restaurant\dto\LoginRequest.class
+com\restaurant\dto\JwtResponse.class
+com\restaurant\model\User.class
+com\restaurant\repository\OrderRepository.class
+com\restaurant\controller\MenuItemController.class
+com\restaurant\repository\MenuItemRepository.class
