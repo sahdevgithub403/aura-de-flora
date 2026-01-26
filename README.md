@@ -252,3 +252,5 @@ npm run build
 ## License
 
 This project is for educational purposes. Please ensure you have proper licenses for any production use.# aura-de-flora
+//Subscribe for seasonal menu updates.
+//
