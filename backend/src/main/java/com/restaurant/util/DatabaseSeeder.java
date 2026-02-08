@@ -12,66 +12,63 @@ import java.util.Arrays;
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
 
-    @Autowired
-    private MenuItemRepository menuItemRepository;
+        @Autowired
+        private MenuItemRepository menuItemRepository;
 
-    @Override
-    public void run(String... args) throws Exception {
-        if (menuItemRepository.count() == 0) {
-            seedMenuItems();
+        @Override
+        public void run(String... args) throws Exception {
+                if (menuItemRepository.count() == 0) {
+                        seedMenuItems();
+                }
         }
-    }
 
-    private void seedMenuItems() {
-        MenuItem[] items = {
-                new MenuItem("Madagascar Vanilla", "Classic vanilla bean speckled cream.", new BigDecimal("119"),
-                        "Scoops"),
-                new MenuItem("Belgian Chocolate", "Rich dark chocolate goodness.", new BigDecimal("149"), "Scoops"),
-                new MenuItem("Strawberry Fields", "Fresh strawberries blended with cream.", new BigDecimal("129"),
-                        "Scoops"),
-                new MenuItem("Mint Choco Chip", "Refreshing mint with dark chocolate chips.", new BigDecimal("139"),
-                        "Scoops"),
-                new MenuItem("Cookie Dough", "Vanilla base with chunks of cookie dough.", new BigDecimal("149"),
-                        "Scoops"),
-                new MenuItem("Butterscotch Crunch", "Crunchy praline in golden ice cream.", new BigDecimal("129"),
-                        "Scoops"),
+        private void seedMenuItems() {
+                MenuItem[] items = {
+                                new MenuItem("Saffron & Sage Risotto",
+                                                "Arborio rice infused with premium saffron and crispy sage butter.",
+                                                new BigDecimal("850"), "Mains"),
+                                new MenuItem("Wild Mushroom Pappardelle",
+                                                "Hand-cut pasta with foraged mushrooms and truffle cream.",
+                                                new BigDecimal("720"), "Mains"),
+                                new MenuItem("Herb-Crusted Sea Bass",
+                                                "Fresh sea bass with a citrus herb crust and roasted asparagus.",
+                                                new BigDecimal("1200"), "Mains"),
+                                new MenuItem("Truffle Infused Burrata",
+                                                "Creamy burrata served with heritage tomatoes and truffle balsamic.",
+                                                new BigDecimal("550"), "Starters"),
+                                new MenuItem("Smoked Duck Salad",
+                                                "Maple-smoked duck breast with micro-greens and pomegranate.",
+                                                new BigDecimal("650"), "Starters"),
+                                new MenuItem("Artisanal Bread Basket",
+                                                "Selection of sourdough and rye with house-churned sea salt butter.",
+                                                new BigDecimal("250"), "Starters"),
+                                new MenuItem("Dark Chocolate Fondant",
+                                                "70% cocoa lava cake with Madagascar vanilla bean gelato.",
+                                                new BigDecimal("450"), "Desserts"),
+                                new MenuItem("Rosemary & honey Panna Cotta",
+                                                "Silky cream infused with local rosemary and wild honey.",
+                                                new BigDecimal("380"), "Desserts"),
+                                new MenuItem("Elderflower Lemonade",
+                                                "Sparkling house-made lemonade with delicate elderflower notes.",
+                                                new BigDecimal("220"), "Beverages"),
+                                new MenuItem("Smoked Old Fashioned",
+                                                "Classic bourbon cocktail smoked with cherry wood chips.",
+                                                new BigDecimal("650"), "Beverages")
+                };
 
-                new MenuItem("Death by Chocolate", "Brownie, chocolate sauce, and 3 scoops of cocoa.",
-                        new BigDecimal("249"), "Sundaes"),
-                new MenuItem("Banana Split", "Classic trio flavor with fresh bananas and nuts.", new BigDecimal("229"),
-                        "Sundaes"),
-                new MenuItem("Berry Bonanza", "Mixed berry compote over vanilla scoops.", new BigDecimal("219"),
-                        "Sundaes"),
-                new MenuItem("Hot Fudge Nutty", "Vanilla ice cream topped with hot fudge and cashews.",
-                        new BigDecimal("199"), "Sundaes"),
+                // Set images for some
+                items[0].setImageUrl(
+                                "https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&w=800&q=80");
+                items[1].setImageUrl(
+                                "https://images.unsplash.com/photo-1473093226795-af9932fe5856?auto=format&fit=crop&w=800&q=80");
+                items[2].setImageUrl(
+                                "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80");
+                items[3].setImageUrl(
+                                "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=800&q=80");
+                items[6].setImageUrl(
+                                "https://images.unsplash.com/photo-1541992224050-70bc16388439?auto=format&fit=crop&w=800&q=80");
 
-                new MenuItem("Thick Chocolate", "Double churned chocolate milk.", new BigDecimal("179"), "Shakes"),
-                new MenuItem("Oreo Overload", "Crunchy Oreos blended with vanilla cream.", new BigDecimal("189"),
-                        "Shakes"),
-                new MenuItem("Strawberry Bliss", "Fresh strawberry milkshake.", new BigDecimal("169"), "Shakes"),
-                new MenuItem("KitKat Break", "Wafer chocolate blend.", new BigDecimal("189"), "Shakes"),
-
-                new MenuItem("Belgian Waffle", "Crispy waffle with maple syrup.", new BigDecimal("149"), "Waffles"),
-                new MenuItem("Nutella Waffle", "Loaded with Nutella spread.", new BigDecimal("199"), "Waffles"),
-                new MenuItem("Ice Cream Waffle", "Waffle topped with a scoop of your choice.", new BigDecimal("229"),
-                        "Waffles")
-        };
-
-        // Set images for some
-        items[0].setImageUrl(
-                "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=500&q=80");
-        items[1].setImageUrl(
-                "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=500&q=80");
-        items[2].setImageUrl(
-                "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=500&q=80");
-        items[6].setImageUrl(
-                "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=500&q=80");
-        items[10].setImageUrl(
-                "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=500&q=80");
-        items[14].setImageUrl(
-                "https://images.unsplash.com/photo-1562376552-0d160a2f238d?auto=format&fit=crop&w=500&q=80");
-
-        menuItemRepository.saveAll(Arrays.asList(items));
-        System.out.println("Seeded database with Cream Island menu items.");
-    }
+                menuItemRepository.saveAll(Arrays.asList(items));
+                System.out.println("Seeded database with Harvest & Hearth artisanal menu items.");
+        }
 }
