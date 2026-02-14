@@ -36,4 +36,8 @@ public class PaymentService {
 
         return com.razorpay.Utils.verifyPaymentSignature(options, keySecret);
     }
+
+    public String getKeyId() {
+        return keyId;
+    }
 }

@@ -25,8 +25,10 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "User not found with username or email: " + usernameOrEmail));
 
+        // Use a single, clear source of truth for the authority string
+        String roleWithPrefix = "ROLE_" + user.getRole().name();
         Collection<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        authorities.add(new SimpleGrantedAuthority(roleWithPrefix));
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),

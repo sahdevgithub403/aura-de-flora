@@ -12,11 +12,16 @@ import java.util.List;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.user LEFT JOIN FETCH o.orderItems i LEFT JOIN FETCH i.menuItem ORDER BY o.orderDate DESC")
+    List<Order> findAllWithUserAndItems();
+
     List<Order> findByUser(User user);
 
     List<Order> findByStatus(Order.OrderStatus status);
 
     List<Order> findByUserOrderByOrderDateDesc(User user);
+
+    long countByUser(User user);
 
     long countByOrderDateAfter(LocalDateTime date);
 

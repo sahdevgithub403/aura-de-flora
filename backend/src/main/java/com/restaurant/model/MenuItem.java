@@ -29,6 +29,7 @@ public class MenuItem {
     @Size(max = 100)
     private String category;
 
+    @Column(columnDefinition = "TEXT")
     private String imageUrl;
 
     @NotNull

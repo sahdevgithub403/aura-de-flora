@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/reservations")
 public class ReservationController {
@@ -28,21 +27,21 @@ public class ReservationController {
     private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public List<Reservation> getAllReservations() {
         return reservationRepository.findAll();
     }
 
     @GetMapping("/my")
     public List<Reservation> getMyReservations(Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName())
+        User user = userRepository.findByUsernameOrEmail(authentication.getName(), authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return reservationRepository.findByUser(user);
     }
 
     @PostMapping
     public Reservation createReservation(@RequestBody Reservation reservation, Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName())
+        User user = userRepository.findByUsernameOrEmail(authentication.getName(), authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         reservation.setUser(user);
 

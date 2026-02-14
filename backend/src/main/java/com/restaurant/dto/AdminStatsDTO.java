@@ -6,20 +6,30 @@ public class AdminStatsDTO {
     private long totalOrdersToday;
     private long pendingOrders;
     private BigDecimal totalRevenue;
+    private double avgOrderValue;
     private int activeTables; // Placeholder for now
     private double averageRating;
     private long totalReviews;
     private long customerFeedbackCount;
 
-    public AdminStatsDTO(long totalOrdersToday, long pendingOrders, BigDecimal totalRevenue,
+    public AdminStatsDTO(long totalOrdersToday, long pendingOrders, BigDecimal totalRevenue, double avgOrderValue,
             int activeTables, double averageRating, long totalReviews, long customerFeedbackCount) {
         this.totalOrdersToday = totalOrdersToday;
         this.pendingOrders = pendingOrders;
         this.totalRevenue = totalRevenue != null ? totalRevenue : BigDecimal.ZERO;
+        this.avgOrderValue = avgOrderValue;
         this.activeTables = activeTables;
         this.averageRating = averageRating;
         this.totalReviews = totalReviews;
         this.customerFeedbackCount = customerFeedbackCount;
+    }
+
+    public double getAvgOrderValue() {
+        return avgOrderValue;
+    }
+
+    public void setAvgOrderValue(double avgOrderValue) {
+        this.avgOrderValue = avgOrderValue;
     }
 
     // Getters and Setters

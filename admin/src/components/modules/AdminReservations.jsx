@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { reservationAPI } from "../../services/api";
 import { Check, X, Clock, Users, Calendar } from "lucide-react";
 import websocketService from "../../services/websocket";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081/api";
 
 const AdminReservations = () => {
   const [reservations, setReservations] = useState([]);
@@ -11,10 +9,7 @@ const AdminReservations = () => {
 
   const fetchReservations = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_URL}/reservations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await reservationAPI.getAllReservations();
       // Sort by date/time desc (newest first)
       const sorted = (response.data || []).sort((a, b) => {
         return (
@@ -52,17 +47,7 @@ const AdminReservations = () => {
 
   const updateStatus = async (id, status) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `${API_URL}/reservations/${id}/status`,
-        JSON.stringify(status), // Sending as raw string if enum, or object wrapper? Backend expects RequestBody enum. JSON string "CONFIRMED" usually works for Enums in Spring if properly deserialized. Let's try sending standard JSON string.
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      await reservationAPI.updateReservationStatus(id, status);
       // No need to manually update state, WebSocket will do it
     } catch (err) {
       alert("Failed to update status");
@@ -87,8 +72,8 @@ const AdminReservations = () => {
                   {res.user?.name || res.user?.username || "Guest"}
                 </span>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
-                    res.status === "CONFIRMED"
+                  className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                    res.status === "CONFIRMED" || res.status === "COMPLETED"
                       ? "bg-emerald-100 text-emerald-700"
                       : res.status === "REJECTED" || res.status === "CANCELLED"
                         ? "bg-red-100 text-red-700"

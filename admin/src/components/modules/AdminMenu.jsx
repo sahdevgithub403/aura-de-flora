@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { menuAPI } from "../../services/api";
 import websocketService from "../../services/websocket";
 import { Plus, Edit2, Trash2, Search, Loader2, X, Save } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const AdminMenu = () => {
+  const { isAdmin } = useAuth();
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -11,6 +13,7 @@ const AdminMenu = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // ... (state for formData)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -47,6 +50,10 @@ const AdminMenu = () => {
   }, []);
 
   const openModal = (item = null) => {
+    if (!isAdmin) {
+      alert("You do not have permission to add or edit items.");
+      return;
+    }
     if (item) {
       setEditingItem(item);
       setFormData({
@@ -76,11 +83,17 @@ const AdminMenu = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price <= 0) {
+      alert("Please enter a valid price greater than 0");
+      setSaving(false);
+      return;
+    }
+
     try {
       const payload = {
         ...formData,
-        price: parseFloat(formData.price),
-        category: "General", // Default category since field is removed
+        price: price,
       };
 
       if (editingItem) await menuAPI.updateMenuItem(editingItem.id, payload);
@@ -88,7 +101,16 @@ const AdminMenu = () => {
       await fetchMenuItems();
       setShowModal(false);
     } catch (err) {
-      alert("Error saving item");
+      console.error(err);
+      if (err.response?.status === 403) {
+        alert(
+          "Permission Denied: You need Admin privileges to perform this action.",
+        );
+      } else {
+        alert(
+          err.response?.data?.message || err.message || "Error saving item",
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -122,12 +144,19 @@ const AdminMenu = () => {
             className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
           />
         </div>
-        <button
-          onClick={() => openModal()}
-          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
-        >
-          <Plus size={18} /> Add New Item
-        </button>
+        {!isAdmin && (
+          <div className="text-red-500 text-sm font-bold flex items-center">
+            Read Only Mode
+          </div>
+        )}
+        {isAdmin && (
+          <button
+            onClick={() => openModal()}
+            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+          >
+            <Plus size={18} /> Add New Item
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -257,6 +286,21 @@ const AdminMenu = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, price: e.target.value })
                     }
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-500">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
+                    placeholder="e.g. Main Course"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none"
                     required
                   />

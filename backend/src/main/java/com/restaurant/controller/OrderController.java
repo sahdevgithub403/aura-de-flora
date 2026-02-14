@@ -1,22 +1,20 @@
 package com.restaurant.controller;
 
-import com.restaurant.dto.AdminStatsDTO;
 import com.restaurant.model.Order;
 import com.restaurant.model.User;
 import com.restaurant.repository.OrderRepository;
 import com.restaurant.repository.UserRepository;
+import com.restaurant.repository.MenuItemRepository;
 import com.restaurant.service.AdminDashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -34,14 +32,13 @@ public class OrderController {
     private AdminDashboardService adminDashboardService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+        return orderRepository.findAllWithUserAndItems();
     }
 
     @GetMapping("/my")
     public List<Order> getMyOrders(Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName())
+        User user = userRepository.findByUsernameOrEmail(authentication.getName(), authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return orderRepository.findByUserOrderByOrderDateDesc(user);
     }
@@ -60,34 +57,85 @@ public class OrderController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Autowired
+    private MenuItemRepository menuItemRepository;
+
     @PostMapping
-    public Order createOrder(@Valid @RequestBody Order order, Authentication authentication) {
-        User user = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        order.setUser(user);
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> createOrder(@Valid @RequestBody Order order, Authentication authentication) {
+        System.out.println("Processing order for: " + authentication.getName());
+        try {
+            User user = userRepository.findByUsernameOrEmail(authentication.getName(), authentication.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            order.setUser(user);
+            order.setOrderDate(java.time.LocalDateTime.now());
+            order.setStatus(Order.OrderStatus.PENDING);
 
-        if (order.getOrderItems() != null) {
-            for (com.restaurant.model.OrderItem item : order.getOrderItems()) {
-                item.setOrder(order);
+            if (order.getOrderItems() != null) {
+                for (com.restaurant.model.OrderItem item : order.getOrderItems()) {
+                    item.setOrder(order);
+                    // Fetch full MenuItem to ensure it's attached to the persistence context
+                    if (item.getMenuItem() != null && item.getMenuItem().getId() != null) {
+                        com.restaurant.model.MenuItem fullItem = menuItemRepository.findById(item.getMenuItem().getId())
+                                .orElseThrow(() -> new RuntimeException(
+                                        "Menu item not found: " + item.getMenuItem().getId()));
+                        item.setMenuItem(fullItem);
+                    }
+                }
             }
-        }
 
-        Order savedOrder = orderRepository.save(order);
-        messagingTemplate.convertAndSend("/topic/orders", savedOrder);
-        messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
-        return savedOrder;
+            Order savedOrder = orderRepository.save(order);
+            System.out.println("Order saved with ID: " + savedOrder.getId());
+
+            // Fetch full order with items and user for WS notification
+            orderRepository.findById(savedOrder.getId()).ifPresent(fullOrder -> {
+                try {
+                    messagingTemplate.convertAndSend("/topic/orders", fullOrder);
+                    messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
+                } catch (Exception wsError) {
+                    System.err.println("WebSocket notification failed but order was saved: " + wsError.getMessage());
+                }
+            });
+
+            return ResponseEntity.ok(savedOrder);
+        } catch (Exception e) {
+            System.err.println("Order creation failed: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Order creation failed: " + e.getMessage());
+        }
     }
 
-    @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id, @RequestBody Order.OrderStatus status) {
+    @PatchMapping("/{id}/status")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id,
+            @RequestBody java.util.Map<String, String> statusUpdate) {
+        String statusStr = statusUpdate.get("status");
+        if (statusStr == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Order.OrderStatus status = Order.OrderStatus.valueOf(statusStr.toUpperCase());
+
         return orderRepository.findById(id)
                 .map(order -> {
                     order.setStatus(status);
                     Order updatedOrder = orderRepository.save(order);
-                    messagingTemplate.convertAndSend("/topic/orders", updatedOrder);
-                    messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
-                    messagingTemplate.convertAndSend("/topic/order-status/" + order.getUser().getId(), updatedOrder);
+
+                    try {
+                        // Re-fetch or ensure initialization for WS
+                        Order fullOrder = orderRepository.findById(updatedOrder.getId()).orElse(updatedOrder);
+                        messagingTemplate.convertAndSend("/topic/orders", fullOrder);
+                        messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
+
+                        // Notify the user specifically
+                        if (order.getUser() != null) {
+                            messagingTemplate.convertAndSend("/topic/order-status/" + order.getUser().getId(),
+                                    fullOrder);
+                        }
+                    } catch (Exception wsError) {
+                        System.err.println("WS notification error: " + wsError.getMessage());
+                    }
+
                     return ResponseEntity.ok(updatedOrder);
                 })
                 .orElse(ResponseEntity.notFound().build());

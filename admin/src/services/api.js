@@ -54,15 +54,12 @@ export const isTokenExpired = () => {
   if (!token) return true;
 
   const decoded = decodeToken(token);
-  if (!decoded || !decoded.exp) return true;
+  if (!decoded || !decoded.exp) return false;
 
-  // exp is in seconds, Date.now() is in milliseconds
-  // Add 30 second buffer to prevent edge cases
   const expirationTime = decoded.exp * 1000;
   const currentTime = Date.now();
-  const bufferTime = 30 * 1000; // 30 seconds buffer
-
-  return currentTime >= (expirationTime - bufferTime);
+  
+  return currentTime > expirationTime;
 };
 
 /**
@@ -71,7 +68,7 @@ export const isTokenExpired = () => {
 export const isAuthenticated = () => {
   const token = getToken();
   const user = localStorage.getItem('user');
-  return token && user && !isTokenExpired();
+  return !!(token && user && !isTokenExpired());
 };
 
 /**
@@ -99,7 +96,7 @@ const api = axios.create({
   },
 });
 
-// --- PROTECTED ENDPOINTS (all admin endpoints require auth) ---
+// --- PROTECTED ENDPOINTS ---
 const PUBLIC_ENDPOINTS = ['/auth/'];
 
 // --- REQUEST INTERCEPTOR ---
@@ -108,34 +105,8 @@ api.interceptors.request.use(
     const token = getToken();
     const url = config.url;
     
-    // Check if this is a public endpoint
-    const isPublicEndpoint = PUBLIC_ENDPOINTS.some(endpoint => url?.includes(endpoint));
-    
-    // For protected endpoints (non-public), validate token before sending request
-    if (!isPublicEndpoint) {
-      if (!token) {
-        console.warn('No authentication token found for admin route:', url);
-        clearAuthData();
-        
-        if (authErrorHandler) {
-          authErrorHandler('Please login to continue.');
-        }
-        
-        return Promise.reject(new Error('NO_TOKEN'));
-      } else if (isTokenExpired()) {
-        console.warn('Token expired. Clearing auth data.');
-        clearAuthData();
-        
-        if (authErrorHandler) {
-          authErrorHandler('Session expired. Please login again.');
-        }
-        
-        return Promise.reject(new Error('TOKEN_EXPIRED'));
-      }
-    }
-    
-    // Attach token if available and valid
-    if (token && !isTokenExpired()) {
+    // Attach token if available
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
@@ -151,26 +122,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const isAuthEndpoint = error.config?.url?.includes('/auth/');
+    const url = error.config?.url;
+    const isAuthEndpoint = url?.includes('/auth/');
     
-    // Handle 401 Unauthorized or 403 Forbidden (except for auth endpoints)
+    // Handle 401/403 errors (except for login calls)
     if ((status === 401 || status === 403) && !isAuthEndpoint) {
-      console.error(`Authentication error (${status}):`, error.response?.data?.message || 'Access denied');
+      console.error(`Admin Auth Failure on ${url}: ${status}`);
       
-      clearAuthData();
-      
+      // Let AuthContext handle logout transition
       if (authErrorHandler) {
         const message = status === 401 
           ? 'Session expired. Please login again.' 
           : 'Access denied. Admin privileges required.';
         authErrorHandler(message);
-      }
-      
-      // Redirect to login if not already there
-      if (!window.location.pathname.includes('/login')) {
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 100);
       }
     }
     
@@ -203,6 +167,14 @@ export const adminAPI = {
   getStats: () => api.get('/admin/stats'),
   getRevenueAnalytics: () => api.get('/admin/analytics/revenue'),
   getRecentOrders: (limit = 5) => api.get(`/admin/orders/recent?limit=${limit}`),
+  getRestaurantStatus: () => api.get('/restaurant-status'),
+  updateRestaurantStatus: (status) => api.put('/restaurant-status', status),
+};
+
+// --- RESERVATIONS API ---
+export const reservationAPI = {
+  getAllReservations: () => api.get('/reservations'),
+  updateReservationStatus: (id, status) => api.put(`/reservations/${id}/status`, JSON.stringify(status)),
 };
 
 export default api;

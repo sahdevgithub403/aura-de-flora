@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import {
   TrendingUp,
   ShoppingBag,
@@ -7,25 +8,21 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
-import axios from "axios";
 import { adminAPI } from "../../services/api";
 import websocketService from "../../services/websocket";
-
-// ... const API_URL ... or simply use axios with relative path if proxy set, but adminAPI uses full path. Let's use axios directly or create a method in adminAPI. For now, I'll use axios with the base URL.
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081/api";
 
 const AdminOverview = () => {
   const [stats, setStats] = useState({
     totalOrdersToday: 0,
     pendingOrders: 0,
     totalRevenue: 0,
-    avgOrderValue: 470,
-    // Keep internal UI change values for now if not in DB
-    revenueChange: "+12.5%",
-    ordersChange: "+5.2%",
-    pendingChange: "-2.1%",
-    avgChange: "+1.4%",
+    avgOrderValue: 0,
+    revenueChange: "+0%",
+    ordersChange: "+0%",
+    pendingChange: "0%",
+    avgChange: "+0%",
   });
+  const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [restaurantStatus, setRestaurantStatus] = useState({
@@ -36,13 +33,26 @@ const AdminOverview = () => {
 
   useEffect(() => {
     fetchStats();
+    fetchRecentOrders();
     fetchRestaurantStatus();
 
     websocketService.connect();
+
+    // Subscribe to stats updates
     const unsubscribeStats = websocketService.subscribe(
       "/topic/admin/stats",
       (newStats) => {
         setStats((prev) => ({ ...prev, ...newStats }));
+      },
+    );
+
+    // Subscribe to NEW orders to update recent list
+    const unsubscribeOrders = websocketService.subscribe(
+      "/topic/orders",
+      (newOrder) => {
+        setRecentOrders((prev) => [newOrder, ...prev.slice(0, 4)]);
+        // Also refresh stats when a new order arrives
+        fetchStats();
       },
     );
 
@@ -52,8 +62,9 @@ const AdminOverview = () => {
     );
 
     return () => {
-      unsubscribeStats();
-      unsubscribeStatus();
+      unsubscribeStats?.();
+      unsubscribeOrders?.();
+      unsubscribeStatus?.();
     };
   }, []);
 
@@ -70,9 +81,18 @@ const AdminOverview = () => {
     }
   };
 
+  const fetchRecentOrders = async () => {
+    try {
+      const response = await adminAPI.getRecentOrders(5);
+      setRecentOrders(response.data || []);
+    } catch (err) {
+      console.error("Recent orders error:", err);
+    }
+  };
+
   const fetchRestaurantStatus = async () => {
     try {
-      const res = await axios.get(`${API_URL}/restaurant-status`);
+      const res = await adminAPI.getRestaurantStatus();
       setRestaurantStatus(res.data);
     } catch (err) {
       console.error("Status fetch error", err);
@@ -81,14 +101,11 @@ const AdminOverview = () => {
 
   const toggleStatus = async () => {
     try {
-      const token = localStorage.getItem("token");
       const newStatus = {
         ...restaurantStatus,
         isOpen: !restaurantStatus.isOpen,
       };
-      const res = await axios.put(`${API_URL}/restaurant-status`, newStatus, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminAPI.updateRestaurantStatus(newStatus);
       setRestaurantStatus(res.data);
     } catch (err) {
       alert("Failed to update status");
@@ -118,7 +135,9 @@ const AdminOverview = () => {
         <p className="text-sm text-slate-500 mb-1">{title}</p>
         <h3 className="text-2xl font-bold text-slate-800">
           {prefix}
-          {typeof value === "number" ? value.toLocaleString() : value}
+          {typeof value === "number"
+            ? Math.round(value).toLocaleString()
+            : value}
         </h3>
       </div>
     </div>
@@ -225,30 +244,47 @@ const AdminOverview = () => {
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h4 className="text-base font-semibold text-slate-800 mb-6">
+          <h4 className="text-base font-semibold text-slate-800 mb-6 flex justify-between items-center">
             Recent Activity
+            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+              Live
+            </span>
           </h4>
           <div className="space-y-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 border border-slate-100">
-                  <ShoppingBag size={18} />
+            {recentOrders.length > 0 ? (
+              recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 border border-slate-100">
+                    <ShoppingBag size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">
+                      Order #{order.id}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {new Date(order.orderDate).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">
+                    ₹{order.totalAmount}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">
-                    Order #RD-72{i}
-                  </p>
-                  <p className="text-xs text-slate-400">4 minutes ago</p>
-                </div>
-                <span className="text-sm font-semibold text-slate-700">
-                  ₹{450 * i}
-                </span>
+              ))
+            ) : (
+              <div className="text-center py-10 text-slate-400 text-sm italic">
+                No recent orders
               </div>
-            ))}
+            )}
           </div>
-          <button className="w-full mt-8 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium">
+          <Link
+            to="/orders"
+            className="block text-center w-full mt-8 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+          >
             View All Activity
-          </button>
+          </Link>
         </div>
       </div>
     </div>

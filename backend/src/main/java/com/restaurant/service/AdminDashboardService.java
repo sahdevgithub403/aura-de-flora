@@ -11,11 +11,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import java.util.List;
+
 @Service
 public class AdminDashboardService {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    public List<Order> getRecentOrders(int limit) {
+        return orderRepository.findAll(PageRequest.of(0, limit, Sort.by("orderDate").descending())).getContent();
+    }
 
     public AdminStatsDTO getStats() {
         LocalDateTime startOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MIDNIGHT);
@@ -23,6 +31,11 @@ public class AdminDashboardService {
         long totalOrdersToday = orderRepository.countByOrderDateAfter(startOfDay);
         long pendingOrders = orderRepository.countByStatus(Order.OrderStatus.PENDING);
         BigDecimal totalRevenue = orderRepository.sumTotalAmount();
+        if (totalRevenue == null)
+            totalRevenue = BigDecimal.ZERO;
+
+        long totalOrders = orderRepository.count();
+        double avgOrderValue = totalOrders > 0 ? totalRevenue.doubleValue() / totalOrders : 0;
 
         // Standard mock values as used in the controller
         int activeTables = 8;
@@ -34,6 +47,7 @@ public class AdminDashboardService {
                 totalOrdersToday,
                 pendingOrders,
                 totalRevenue,
+                avgOrderValue,
                 activeTables,
                 averageRating,
                 totalReviews,
