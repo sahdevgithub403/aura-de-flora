@@ -4,9 +4,11 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "order_items")
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class OrderItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,11 +1,13 @@
 package com.restaurant.controller;
 
+import com.restaurant.dto.OrderResponse;
 import com.restaurant.model.Order;
 import com.restaurant.model.User;
 import com.restaurant.repository.OrderRepository;
 import com.restaurant.repository.UserRepository;
 import com.restaurant.repository.MenuItemRepository;
 import com.restaurant.service.AdminDashboardService;
+import com.restaurant.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -31,28 +33,31 @@ public class OrderController {
     @Autowired
     private AdminDashboardService adminDashboardService;
 
+    @Autowired
+    private OrderService orderService;
+
     @GetMapping
-    public List<Order> getAllOrders() {
-        return orderRepository.findAllWithUserAndItems();
+    public List<OrderResponse> getAllOrders() {
+        return orderService.getAllOrders();
     }
 
     @GetMapping("/my")
-    public List<Order> getMyOrders(Authentication authentication) {
+    public List<OrderResponse> getMyOrders(Authentication authentication) {
         User user = userRepository.findByUsernameOrEmail(authentication.getName(), authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return orderRepository.findByUserOrderByOrderDateDesc(user);
+        return orderService.getOrdersByUser(user);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrderById(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long id, Authentication authentication) {
         return orderRepository.findById(id)
                 .map(order -> {
                     if (order.getUser().getUsername().equals(authentication.getName()) ||
                             authentication.getAuthorities().stream()
                                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
-                        return ResponseEntity.ok(order);
+                        return ResponseEntity.ok(orderService.mapToOrderResponse(order));
                     }
-                    return ResponseEntity.status(403).<Order>build();
+                    return ResponseEntity.status(403).<OrderResponse>build();
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -87,17 +92,18 @@ public class OrderController {
             Order savedOrder = orderRepository.save(order);
             System.out.println("Order saved with ID: " + savedOrder.getId());
 
-            // Fetch full order with items and user for WS notification
-            orderRepository.findById(savedOrder.getId()).ifPresent(fullOrder -> {
-                try {
-                    messagingTemplate.convertAndSend("/topic/orders", fullOrder);
-                    messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
-                } catch (Exception wsError) {
-                    System.err.println("WebSocket notification failed but order was saved: " + wsError.getMessage());
-                }
-            });
+            // Map to response DTO immediately for WS and response
+            OrderResponse response = orderService.mapToOrderResponse(savedOrder);
 
-            return ResponseEntity.ok(savedOrder);
+            // Fetch full order for WS notification
+            try {
+                messagingTemplate.convertAndSend("/topic/orders", response);
+                messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
+            } catch (Exception wsError) {
+                System.err.println("WebSocket notification failed but order was saved: " + wsError.getMessage());
+            }
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             System.err.println("Order creation failed: " + e.getMessage());
             e.printStackTrace();
@@ -107,7 +113,7 @@ public class OrderController {
 
     @PatchMapping("/{id}/status")
     @org.springframework.transaction.annotation.Transactional
-    public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id,
+    public ResponseEntity<OrderResponse> updateOrderStatus(@PathVariable Long id,
             @RequestBody java.util.Map<String, String> statusUpdate) {
         String statusStr = statusUpdate.get("status");
         if (statusStr == null) {
@@ -120,23 +126,21 @@ public class OrderController {
                 .map(order -> {
                     order.setStatus(status);
                     Order updatedOrder = orderRepository.save(order);
+                    OrderResponse response = orderService.mapToOrderResponse(updatedOrder);
 
                     try {
-                        // Re-fetch or ensure initialization for WS
-                        Order fullOrder = orderRepository.findById(updatedOrder.getId()).orElse(updatedOrder);
-                        messagingTemplate.convertAndSend("/topic/orders", fullOrder);
+                        messagingTemplate.convertAndSend("/topic/orders", response);
                         messagingTemplate.convertAndSend("/topic/admin/stats", adminDashboardService.getStats());
 
-                        // Notify the user specifically
                         if (order.getUser() != null) {
                             messagingTemplate.convertAndSend("/topic/order-status/" + order.getUser().getId(),
-                                    fullOrder);
+                                    response);
                         }
                     } catch (Exception wsError) {
                         System.err.println("WS notification error: " + wsError.getMessage());
                     }
 
-                    return ResponseEntity.ok(updatedOrder);
+                    return ResponseEntity.ok(response);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

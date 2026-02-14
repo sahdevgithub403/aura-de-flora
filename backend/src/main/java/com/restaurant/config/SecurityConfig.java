@@ -51,13 +51,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/menu/**").permitAll()
                         .requestMatchers("/ws-restaurant/**").permitAll()
                         .requestMatchers("/api/restaurant-status/**").permitAll()
-                        // Specific routes first
-                        .requestMatchers("/api/orders/my").authenticated()
-                        .requestMatchers("/api/reservations/my").authenticated()
-                        // Admin-only sections
+                        // Admin-only sections (must come BEFORE general authenticated routes)
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/orders").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/orders/**").hasRole("ADMIN")
+                        // Any authenticated user can access these
+                        .requestMatchers("/api/user/**").authenticated()
+                        .requestMatchers("/api/orders/my").authenticated()
+                        .requestMatchers("/api/orders/**").authenticated()
+                        .requestMatchers("/api/reservations/**").authenticated()
+                        .requestMatchers("/api/payment/**").authenticated()
                         // Everything else requires authentication
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

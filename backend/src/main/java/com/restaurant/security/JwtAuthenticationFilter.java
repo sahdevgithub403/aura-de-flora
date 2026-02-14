@@ -34,8 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getServletPath();
-
-        // Allow filter to proceed (it will just not find a token if not present)
+        String method = request.getMethod();
 
         try {
             String jwt = getJwtFromRequest(request);
@@ -56,9 +55,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext()
                         .setAuthentication(authentication);
+
+                System.out.println("DEBUG JWT: " + method + " " + path
+                        + " | User: " + username
+                        + " | Authorities: " + userDetails.getAuthorities());
+            } else {
+                // Log when no valid token is found for non-public paths
+                if (!path.startsWith("/api/auth") && !path.startsWith("/api/menu")
+                        && !path.equals("/ws-restaurant")) {
+                    System.out.println("DEBUG JWT: " + method + " " + path
+                            + " | No valid token! jwt=" + (jwt != null ? "present-but-invalid" : "missing"));
+                }
             }
         } catch (Exception ex) {
-            logger.error("JWT authentication failed", ex);
+            logger.error("JWT authentication failed for " + path, ex);
         }
 
         filterChain.doFilter(request, response);

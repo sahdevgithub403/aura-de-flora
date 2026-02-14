@@ -1,10 +1,11 @@
 package com.restaurant.controller;
 
 import com.restaurant.dto.AdminStatsDTO;
-import com.restaurant.model.Order;
+import com.restaurant.dto.OrderResponse;
 import com.restaurant.service.AdminDashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,12 +21,14 @@ public class AdminDashboardController {
     private AdminDashboardService adminDashboardService;
 
     @GetMapping("/stats")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AdminStatsDTO> getDashboardStats() {
         return ResponseEntity.ok(adminDashboardService.getStats());
     }
 
     @GetMapping("/orders/recent")
-    public ResponseEntity<List<Order>> getRecentOrders(@RequestParam(defaultValue = "5") int limit,
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<OrderResponse>> getRecentOrders(@RequestParam(defaultValue = "5") int limit,
             org.springframework.security.core.Authentication auth) {
         return ResponseEntity.ok(adminDashboardService.getRecentOrders(limit));
     }

@@ -7,8 +7,11 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Entity
 @Table(name = "menu_items")
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class MenuItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
