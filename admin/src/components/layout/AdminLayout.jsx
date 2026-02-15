@@ -88,7 +88,7 @@ const AdminLayout = () => {
       >
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
           <span className="font-bold text-slate-800 tracking-tight text-xl">
-            CREAM ADMIN
+            KABAB ISLAND
           </span>
           <button
             onClick={() => setSidebarOpen(false)}
