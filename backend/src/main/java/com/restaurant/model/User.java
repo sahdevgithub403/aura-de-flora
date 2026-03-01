@@ -45,6 +45,9 @@ public class User {
     @Size(max = 500)
     private String address;
 
+    @Column(name = "provider")
+    private String provider = "LOCAL"; // "LOCAL" or "GOOGLE"
+
     public enum Role {
         USER, ADMIN
     }
@@ -121,5 +124,13 @@ public class User {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }

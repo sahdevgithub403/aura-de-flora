@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   loginAPI,
+  googleLoginAPI,
   signupAPI,
   setAuthErrorHandler,
   isTokenExpired,
@@ -152,12 +153,46 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async (idToken) => {
+    try {
+      const response = await googleLoginAPI(idToken);
+      const data = response.data;
+      const jwt = data.token || data.accessToken;
+
+      if (!jwt) {
+        console.error("Google login failed: No token received");
+        return false;
+      }
+
+      const userData = {
+        id: data.id,
+        name: data.fullName || data.username || data.email,
+        email: data.email,
+        username: data.username,
+        role: data.role || "USER",
+      };
+
+      setUser(userData);
+      localStorage.setItem("token", jwt);
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Google login error:",
+        error.response?.data || error.message,
+      );
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         login,
         signup,
+        googleLogin,
         logout,
         loading,
         updateUser,

@@ -172,6 +172,10 @@ export const loginAPI = async (email, password) => {
    return api.post('/auth/signin', { username: email, password });
 };
 
+export const googleLoginAPI = async (token) => {
+  return api.post('/auth/google', { token });
+};
+
 export const signupAPI = async (name, email, password) => {
    return api.post('/auth/signup', { fullName: name, username: email, email, password });
 };

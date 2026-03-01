@@ -39,6 +39,9 @@ public class AuthController {
     @Autowired
     JwtTokenProvider tokenProvider;
 
+    @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.client.registration.google.client-id}")
+    private String googleClientId;
+
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         System.out.println("Login request received: " + loginRequest.getUsername());
@@ -78,6 +81,7 @@ public class AuthController {
 
         user.setPhoneNumber(signUpRequest.getPhoneNumber());
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setProvider("LOCAL");
 
         userRepository.save(user);
 
@@ -87,72 +91,60 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleLoginRequest googleRequest) {
         try {
-            // NOTE: Replace with your actual Client ID from Google Cloud Console
-            String clientId = "YOUR_GOOGLE_CLIENT_ID";
-
-            // If you haven't set up a client ID yet, this verification will fail if you try
-            // to use it strictly.
-            // verifying against a dummy ID.
-            // For development without a real client ID, you might mock this or skip
-            // verification,
-            // but here is the correct implementation logic.
-
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(),
                     new GsonFactory())
-                    .setAudience(Collections.singletonList(clientId))
+                    .setAudience(Collections.singletonList(googleClientId))
                     .build();
 
-            // GoogleIdToken idToken = verifier.verify(googleRequest.getToken());
-            // For now, to allow the user to proceed without erroring on
-            // "YOUR_GOOGLE_CLIENT_ID", we will try to decode.
-            // But 'verify' is the secure way. We'll use 'verify' but catch the exception if
-            // it fails due to audience mismatch
-            // and maybe for *testing* allow it if it's a valid token structure.
-            // actually, let's keep it simple: assume user will put the real key.
-            // Or better: decode payload without verification if you just want to get it
-            // working for a demo.
-            // Let's stick to standard practice:
+            GoogleIdToken idToken = verifier.verify(googleRequest.getToken());
 
-            // GoogleIdToken idToken = verifier.verify(googleRequest.getToken());
-            // NOTE: Since we don't have the real Client ID, we will skip verification for
-            // this generated code
-            // and manually parse the token to get the user info.
-            // IN PRODUCTION: USE verifier.verify(token)
-
-            GoogleIdToken idToken = GoogleIdToken.parse(new GsonFactory(), googleRequest.getToken());
-
-            if (idToken != null) {
-                GoogleIdToken.Payload payload = idToken.getPayload();
-                String email = payload.getEmail();
-                String name = (String) payload.get("name");
-
-                User user = userRepository.findByUsername(email).orElse(null);
-                if (user == null) {
-                    if (userRepository.existsByEmail(email)) {
-                        user = userRepository.findByEmail(email).get(); // Should be found now
-                    } else {
-                        user = new User();
-                        user.setUsername(email);
-                        user.setEmail(email);
-                        user.setFullName(name);
-                        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-                        userRepository.save(user);
-                    }
-                }
-
-                String jwt = tokenProvider.generateTokenFromUsername(user.getUsername());
-
-                return ResponseEntity.ok(new JwtResponse(jwt,
-                        user.getId(),
-                        user.getUsername(),
-                        user.getEmail(),
-                        user.getFullName(),
-                        user.getRole().name()));
-            } else {
-                return ResponseEntity.badRequest().body("Invalid ID token.");
+            if (idToken == null) {
+                // Fallback for development if verifier fails due to audience or other issues
+                // but the token is otherwise valid.
+                // However, the rules say "verify Google ID token using GoogleIdTokenVerifier"
+                // and "return error if occurs".
+                return ResponseEntity.badRequest().body("Invalid Google ID token verification failed.");
             }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+
+            // Look up by email as it's the primary identifier for Google login
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            if (user == null) {
+                // User doesn't exist, create new one
+                user = new User();
+                user.setUsername(email);
+                user.setEmail(email);
+                user.setFullName(name);
+                user.setProvider("GOOGLE");
+                user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+                userRepository.save(user);
+            } else {
+                // User exists, ensure provider is updated if it was LOCAL
+                if (user.getProvider() == null || "LOCAL".equals(user.getProvider())) {
+                    // We can choose to keep it LOCAL or allow linking.
+                    // Usually we might want to track that they've used Google now.
+                    // user.setProvider("GOOGLE");
+                    // userRepository.save(user);
+                }
+            }
+
+            String jwt = tokenProvider.generateTokenFromUsername(user.getUsername());
+
+            return ResponseEntity.ok(new JwtResponse(jwt,
+                    user.getId(),
+                    user.getUsername(),
+                    user.getEmail(),
+                    user.getFullName(),
+                    user.getRole().name()));
+
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            System.err.println("Google login error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error during Google authentication: " + e.getMessage());
         }
     }
 }
