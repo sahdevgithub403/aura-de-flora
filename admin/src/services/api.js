@@ -179,7 +179,7 @@ export const adminAPI = {
 // --- RESERVATIONS API ---
 export const reservationAPI = {
   getAllReservations: () => api.get('/reservations'),
-  updateReservationStatus: (id, status) => api.put(`/reservations/${id}/status`, JSON.stringify(status)),
+  updateReservationStatus: (id, status) => api.put(`/reservations/${id}/status`, { status }),
 };
 
 export default api;
