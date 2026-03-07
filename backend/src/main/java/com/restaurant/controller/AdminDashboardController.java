@@ -34,6 +34,7 @@ public class AdminDashboardController {
     }
 
     @GetMapping("/analytics/revenue")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getRevenueAnalytics() {
         return ResponseEntity.ok(java.util.List.of(
                 java.util.Map.of("date", "2024-03-01", "revenue", 1200),

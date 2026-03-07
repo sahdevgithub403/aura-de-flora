@@ -27,7 +27,7 @@ public class ReservationController {
     private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<Reservation> getAllReservations() {
         return reservationRepository.findAll();
     }
@@ -56,7 +56,18 @@ public class ReservationController {
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Reservation> updateStatus(@PathVariable Long id,
-            @RequestBody Reservation.ReservationStatus status) {
+            @RequestBody java.util.Map<String, String> statusUpdate) {
+        String statusStr = statusUpdate.get("status");
+        if (statusStr == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Reservation.ReservationStatus status;
+        try {
+            status = Reservation.ReservationStatus.valueOf(statusStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+
         return reservationRepository.findById(id)
                 .map(reservation -> {
                     reservation.setStatus(status);

@@ -57,4 +57,21 @@ public class UserController {
         User savedUser = userRepository.save(user);
         return ResponseEntity.ok(savedUser);
     }
+
+    @PatchMapping("/profile")
+    public ResponseEntity<?> patchUserProfile(@RequestBody Map<String, String> updates,
+            Authentication authentication) {
+        User user = userRepository.findByUsernameOrEmail(authentication.getName(), authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (updates.containsKey("fullName"))
+            user.setFullName(updates.get("fullName"));
+        if (updates.containsKey("phoneNumber"))
+            user.setPhoneNumber(updates.get("phoneNumber"));
+        if (updates.containsKey("address"))
+            user.setAddress(updates.get("address"));
+
+        User savedUser = userRepository.save(user);
+        return ResponseEntity.ok(savedUser);
+    }
 }
